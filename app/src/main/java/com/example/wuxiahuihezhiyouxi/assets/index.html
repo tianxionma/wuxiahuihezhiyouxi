@@ -419,6 +419,11 @@
                     </div>
                 </div>
                 
+                <!-- 键盘控制提示 -->
+                <div class="mt-4 text-center text-sm text-gray-500">
+                    <p><i class="fa fa-keyboard-o mr-1"></i> 提示：您也可以使用键盘方向键或WASD键移动</p>
+                </div>
+                
                 <!-- 位置信息 -->
                 <div class="mt-6 bg-white rounded-lg shadow-lg p-4 border border-gray-200">
                     <h3 id="location-name" class="text-xl font-bold text-primary mb-2">当前位置：洛阳城中心</h3>
@@ -911,6 +916,9 @@
             elements.moveLeftButton.addEventListener('click', () => movePlayer(-10, 0));
             elements.moveRightButton.addEventListener('click', () => movePlayer(10, 0));
             
+            // 键盘控制
+            document.addEventListener('keydown', handleKeyDown);
+            
             // 地图位置点击事件
             elements.mapLocations.forEach(location => {
                 location.addEventListener('click', () => {
@@ -1051,6 +1059,35 @@
             const dx = x1 - x2;
             const dy = y1 - y2;
             return Math.sqrt(dx * dx + dy * dy);
+        }
+        
+        // 处理键盘按下事件
+        function handleKeyDown(event) {
+            // 只有在地图界面才响应键盘控制
+            if (!elements.luoyangMap.classList.contains('hidden')) {
+                switch(event.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        movePlayer(0, -10);
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        movePlayer(0, 10);
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        movePlayer(-10, 0);
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        movePlayer(10, 0);
+                        break;
+                }
+            }
         }
         
         // 移动玩家
