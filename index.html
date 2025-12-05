@@ -1,0 +1,1813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>武侠修炼回合制游戏</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#8B4513',
+                        secondary: '#D2B48C',
+                        accent: '#CD5C5C',
+                        light: '#F5F5DC',
+                        dark: '#3E2723',
+                        success: '#4CAF50',
+                        danger: '#F44336',
+                        info: '#2196F3',
+                        warning: '#FFC107'
+                    },
+                    fontFamily: {
+                        sans: ['Arial', 'sans-serif'],
+                        serif: ['"Times New Roman"', 'serif'],
+                        mono: ['Courier New', 'monospace']
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.5s ease-in-out',
+                        'slide-in': 'slideIn 0.5s ease-in-out',
+                        'pulse-fast': 'pulse 1s ease-in-out 2',
+                        'shake': 'shake 0.5s ease-in-out',
+                        'float': 'float 2s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideIn: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '25%': { transform: 'translateX(-5px)' },
+                            '75%': { transform: 'translateX(5px)' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .text-shadow {
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            }
+            .text-shadow-lg {
+                text-shadow: 4px 4px 8px rgba(0, 0, 0, 0.5);
+            }
+            .border-double-thick {
+                border-width: 4px;
+                border-style: double;
+            }
+            .bg-texture {
+                background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><rect width="100" height="100" fill="none" stroke="%23000" stroke-width="0.5" stroke-opacity="0.1"/></svg>');
+                background-repeat: repeat;
+            }
+            .scrollbar-hide::-webkit-scrollbar {
+                display: none;
+            }
+            .scrollbar-hide {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+        
+        /* 自定义样式 */
+        body {
+            background-color: #F5F5DC;
+            background-image: url('https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/9dcc5005f05b4dc4a42909a6df26ee67~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=kLrbsw0ITY9Sw%2FSDNc1UK85Db%2Bw%3D');
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            background-blend-mode: overlay;
+        }
+        
+        .battle-log {
+            height: 150px;
+            overflow-y: auto;
+        }
+        
+        .character-portrait {
+            transition: all 0.3s ease;
+        }
+        
+        .character-portrait:hover {
+            transform: scale(1.05);
+        }
+        
+        .skill-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .skill-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        
+        .skill-card:active {
+            transform: translateY(-2px);
+        }
+        
+        .skill-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .hp-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        
+        .mp-bar {
+            transition: width 0.5s ease-in-out;
+        }
+        
+        .damage-text {
+            position: absolute;
+            color: #F44336;
+            font-weight: bold;
+            font-size: 1.5rem;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            animation: damageText 1s ease-out forwards;
+            pointer-events: none;
+        }
+        
+        .heal-text {
+            position: absolute;
+            color: #4CAF50;
+            font-weight: bold;
+            font-size: 1.5rem;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            animation: healText 1s ease-out forwards;
+            pointer-events: none;
+        }
+        
+        @keyframes damageText {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-30px); opacity: 0; }
+        }
+        
+        @keyframes healText {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-30px); opacity: 0; }
+        }
+        
+        .skill-animation {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 70%);
+            animation: skillAnimation 1s ease-out forwards;
+            pointer-events: none;
+        }
+        
+        @keyframes skillAnimation {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        
+        .floating-combat-text {
+            position: absolute;
+            font-weight: bold;
+            font-size: 1.2rem;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            animation: floatingCombatText 1.5s ease-out forwards;
+            pointer-events: none;
+        }
+        
+        @keyframes floatingCombatText {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+        
+        .battle-arena {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .battle-effect {
+            position: absolute;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="min-h-screen font-sans text-dark">
+    <!-- 游戏容器 -->
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- 游戏标题 -->
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-bold text-primary text-shadow-lg mb-2">武侠修炼</h1>
+            <p class="text-xl text-secondary italic">江湖恩怨，快意恩仇</p>
+        </header>
+        
+        <!-- 游戏主界面 -->
+        <main class="bg-light bg-opacity-90 rounded-lg shadow-xl p-4 md:p-6 border-2 border-primary">
+            <!-- 角色选择界面 -->
+            <div id="character-selection" class="animate-fade-in">
+                <h2 class="text-2xl font-bold text-center mb-6 text-primary">选择你的武侠</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- 角色1 -->
+                    <div class="character-option bg-white rounded-lg shadow-lg p-4 border-2 border-transparent hover:border-primary cursor-pointer transition-all" data-character="swordsman">
+                        <div class="flex flex-col items-center">
+                            <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/3ec37ffa5feb459a8ddaaef06322c615~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=qeZ50f8VnOhRrthfOXiDumJ3U04%3D" alt="剑客" class="w-40 h-40 object-contain mb-4">
+                            <h3 class="text-xl font-bold text-primary">剑侠客</h3>
+                            <p class="text-sm text-gray-600 mb-2">擅长剑法，高攻击，中等防御</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-accent h-2.5 rounded-full" style="width: 80%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                <span>攻击</span>
+                                <span>80</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-info h-2.5 rounded-full" style="width: 60%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                <span>防御</span>
+                                <span>60</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-warning h-2.5 rounded-full" style="width: 70%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                <span>速度</span>
+                                <span>70</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-success h-2.5 rounded-full" style="width: 75%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>生命</span>
+                                <span>75</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 角色2 -->
+                    <div class="character-option bg-white rounded-lg shadow-lg p-4 border-2 border-transparent hover:border-primary cursor-pointer transition-all" data-character="swordswoman">
+                        <div class="flex flex-col items-center">
+                            <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/486256a7bc624da29346e1c69f6aef18~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=xtm%2Fi0Uqwv4WFuuq4c2JEaLq7ck%3D" alt="侠女" class="w-40 h-40 object-contain mb-4">
+                            <h3 class="text-xl font-bold text-primary">侠女</h3>
+                            <p class="text-sm text-gray-600 mb-2">擅长轻功，高速度，中等攻击</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-accent h-2.5 rounded-full" style="width: 65%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                <span>攻击</span>
+                                <span>65</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-info h-2.5 rounded-full" style="width: 55%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                <span>防御</span>
+                                <span>55</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-warning h-2.5 rounded-full" style="width: 90%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                <span>速度</span>
+                                <span>90</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-success h-2.5 rounded-full" style="width: 70%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>生命</span>
+                                <span>70</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 角色3 -->
+                    <div class="character-option bg-white rounded-lg shadow-lg p-4 border-2 border-transparent hover:border-primary cursor-pointer transition-all" data-character="warrior">
+                        <div class="flex flex-col items-center">
+                            <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/1eed425fed9042099795ff4cd5ea51df~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=cxlF7tH4FTD212t9X2vxlGUEvwg%3D" alt="武士" class="w-40 h-40 object-contain mb-4">
+                            <h3 class="text-xl font-bold text-primary">武士</h3>
+                            <p class="text-sm text-gray-600 mb-2">擅长硬功，高防御，高生命</p>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-accent h-2.5 rounded-full" style="width: 60%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                <span>攻击</span>
+                                <span>60</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-info h-2.5 rounded-full" style="width: 85%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                <span>防御</span>
+                                <span>85</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-warning h-2.5 rounded-full" style="width: 50%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500 mb-2">
+                                <span>速度</span>
+                                <span>50</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                                <div class="bg-success h-2.5 rounded-full" style="width: 90%"></div>
+                            </div>
+                            <div class="flex justify-between text-xs text-gray-500">
+                                <span>生命</span>
+                                <span>90</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-8">
+                    <button id="start-game" class="bg-primary hover:bg-dark text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        开始游戏
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 洛阳地图界面 -->
+            <div id="luoyang-map" class="hidden animate-fade-in">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-primary">洛阳城</h2>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex items-center">
+                            <i class="fa fa-heart text-danger mr-1"></i>
+                            <span id="map-player-hp">100/100</span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fa fa-bolt text-warning mr-1"></i>
+                            <span id="map-player-mp">100/100</span>
+                        </div>
+                        <button id="map-menu-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-lg shadow transition-all">
+                            <i class="fa fa-bars mr-1"></i> 菜单
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 地图容器 -->
+                <div class="relative w-full h-[500px] bg-secondary rounded-lg shadow-lg overflow-hidden">
+                    <!-- 地图背景 -->
+                    <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/e35a0a6cf3a3439bb493bd5eac84ca4c~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134037&x-signature=4F6AFgkGvxX1jOIR06EAT%2BCzgEo%3D" alt="洛阳地图" class="w-full h-full object-cover">
+                    
+                    <!-- 地图标记 -->
+                    <div class="map-location absolute cursor-pointer transition-transform hover:scale-110" data-location="teahouse" style="top: 30%; left: 30%;">
+                        <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/1eb8fd9757e34e249cb39d3d754f37d9~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134037&x-signature=sTMDzcIcV16I3xwF64cGt%2F9qS1M%3D" alt="茶馆" class="w-16 h-16 object-contain">
+                        <div class="text-center text-white text-shadow font-bold mt-1">茶馆</div>
+                    </div>
+                    
+                    <div class="map-location absolute cursor-pointer transition-transform hover:scale-110" data-location="inn" style="top: 60%; left: 40%;">
+                        <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/4768d967548547cfbf9908e4d3b77d6f~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134036&x-signature=avgvmhJwjZhspbKKhjhSqDfobLA%3D" alt="客栈" class="w-16 h-16 object-contain">
+                        <div class="text-center text-white text-shadow font-bold mt-1">客栈</div>
+                    </div>
+                    
+                    <div class="map-location absolute cursor-pointer transition-transform hover:scale-110" data-location="weapon_shop" style="top: 45%; left: 70%;">
+                        <img src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/ebfe2138defa432fb09962437f478f6c~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134037&x-signature=4KnnzSg6tJKzKnqOf3m4R2jVJCM%3D" alt="兵器铺" class="w-16 h-16 object-contain">
+                        <div class="text-center text-white text-shadow font-bold mt-1">兵器铺</div>
+                    </div>
+                    
+                    <div class="map-location absolute cursor-pointer transition-transform hover:scale-110" data-location="city_gate" style="top: 20%; left: 85%;">
+                        <img src="https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/8e3ecd5a73264a3581cd4be58b3d5763~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134037&x-signature=VxBWHWPzUqSKxOibtdREAnnj%2BUo%3D" alt="城门口" class="w-16 h-16 object-contain">
+                        <div class="text-center text-white text-shadow font-bold mt-1">城门口</div>
+                    </div>
+                    
+                    <!-- 敌人位置（红点标记） -->
+                    <div class="map-enemy absolute cursor-pointer animate-pulse" data-enemy="thief" style="top: 50%; left: 60%;">
+                        <div class="w-10 h-10 bg-red-600 rounded-full border-2 border-white flex items-center justify-center">
+                            <i class="fa fa-skull text-white"></i>
+                        </div>
+                        <div class="text-center text-white text-shadow font-bold mt-1">山贼</div>
+                    </div>
+                    
+                    <!-- 玩家位置 -->
+                    <div id="player-position" class="absolute transition-all duration-500" style="top: 50%; left: 50%;">
+                        <div class="w-12 h-12 bg-blue-500 rounded-full border-2 border-white flex items-center justify-center">
+                            <i class="fa fa-user text-white text-xl"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 移动控制 -->
+                <div class="mt-6 flex justify-center">
+                    <div class="grid grid-cols-3 gap-2">
+                        <div></div>
+                        <button id="move-up" class="bg-primary hover:bg-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-all">
+                            <i class="fa fa-arrow-up"></i>
+                        </button>
+                        <div></div>
+                        <button id="move-left" class="bg-primary hover:bg-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-all">
+                            <i class="fa fa-arrow-left"></i>
+                        </button>
+                        <button id="move-down" class="bg-primary hover:bg-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-all">
+                            <i class="fa fa-arrow-down"></i>
+                        </button>
+                        <button id="move-right" class="bg-primary hover:bg-dark text-white font-bold py-2 px-4 rounded-lg shadow transition-all">
+                            <i class="fa fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 位置信息 -->
+                <div class="mt-6 bg-white rounded-lg shadow-lg p-4 border border-gray-200">
+                    <h3 id="location-name" class="text-xl font-bold text-primary mb-2">当前位置：洛阳城中心</h3>
+                    <p id="location-description" class="text-gray-600">你站在洛阳城的中心广场，四周是古色古香的建筑。这里人来人往，热闹非凡。</p>
+                </div>
+            </div>
+            
+            <!-- 战斗界面 -->
+            <div id="battle-screen" class="hidden animate-fade-in">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-primary">战斗</h2>
+                    <button id="battle-back-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-lg shadow transition-all">
+                        <i class="fa fa-arrow-left mr-1"></i> 返回地图
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- 玩家信息 -->
+                    <div class="bg-white rounded-lg shadow-lg p-4 border-2 border-primary">
+                        <div class="flex items-center mb-4">
+                            <img id="player-portrait" src="" alt="玩家" class="w-24 h-24 object-contain mr-4 character-portrait">
+                            <div>
+                                <h3 id="player-name" class="text-xl font-bold text-primary"></h3>
+                                <div class="flex items-center mt-1">
+                                    <i class="fa fa-heart text-danger mr-1"></i>
+                                    <span id="player-hp">100/100</span>
+                                </div>
+                                <div class="flex items-center mt-1">
+                                    <i class="fa fa-bolt text-warning mr-1"></i>
+                                    <span id="player-mp">100/100</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                            <div id="player-hp-bar" class="bg-success h-2.5 rounded-full" style="width: 100%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 mb-3">
+                            <span>生命</span>
+                            <span id="player-hp-text">100/100</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                            <div id="player-mp-bar" class="bg-info h-2.5 rounded-full" style="width: 100%"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-500 mb-3">
+                            <span>内力</span>
+                            <span id="player-mp-text">100/100</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="font-medium">攻击:</span>
+                                <span id="player-attack">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium">防御:</span>
+                                <span id="player-defense">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium">速度:</span>
+                                <span id="player-speed">0</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="font-medium">暴击:</span>
+                                <span id="player-crit">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 战斗区域 -->
+                    <div class="md:col-span-2">
+                        <div class="battle-arena bg-secondary bg-opacity-30 rounded-lg shadow-lg p-4 h-64 relative">
+                            <div id="enemy-container" class="absolute top-4 right-4 flex flex-col items-center">
+                                <img id="enemy-portrait" src="" alt="敌人" class="w-32 h-32 object-contain character-portrait">
+                                <h3 id="enemy-name" class="text-xl font-bold text-danger mt-2"></h3>
+                                <div class="w-48 bg-gray-200 rounded-full h-2.5 mt-1">
+                                    <div id="enemy-hp-bar" class="bg-danger h-2.5 rounded-full" style="width: 100%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>生命</span>
+                                    <span id="enemy-hp-text">100/100</span>
+                                </div>
+                            </div>
+                            
+                            <div id="player-container" class="absolute bottom-4 left-4 flex flex-col items-center">
+                                <img id="player-battle-portrait" src="" alt="玩家" class="w-32 h-32 object-contain character-portrait">
+                                <h3 id="player-battle-name" class="text-xl font-bold text-primary mt-2"></h3>
+                                <div class="w-48 bg-gray-200 rounded-full h-2.5 mt-1">
+                                    <div id="player-battle-hp-bar" class="bg-success h-2.5 rounded-full" style="width: 100%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                    <span>生命</span>
+                                    <span id="player-battle-hp-text">100/100</span>
+                                </div>
+                            </div>
+                            
+                            <!-- 战斗效果将在这里动态添加 -->
+                        </div>
+                        
+                        <!-- 战斗日志 -->
+                        <div class="battle-log bg-white rounded-lg shadow-lg p-4 mt-4 border border-gray-200">
+                            <h3 class="text-lg font-bold text-primary mb-2">战斗日志</h3>
+                            <div id="battle-log-messages" class="text-sm space-y-1">
+                                <p class="text-gray-500 italic">战斗即将开始...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 招式选择 -->
+                <div class="mt-6">
+                    <h3 class="text-xl font-bold text-primary mb-4">选择招式</h3>
+                    <div id="skills-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <!-- 招式卡片将在这里动态添加 -->
+                    </div>
+                </div>
+                
+                <!-- 战斗控制 -->
+                <div class="mt-6 flex justify-between">
+                    <button id="flee-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-all">
+                        <i class="fa fa-sign-out mr-1"></i> 逃跑
+                    </button>
+                    <div>
+                        <button id="end-turn-button" class="bg-info hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-all mr-2">
+                            <i class="fa fa-forward mr-1"></i> 结束回合
+                        </button>
+                        <button id="auto-button" class="bg-warning hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-all">
+                            <i class="fa fa-magic mr-1"></i> 自动战斗
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 战斗结果界面 -->
+            <div id="battle-result" class="hidden animate-fade-in text-center">
+                <div class="bg-white rounded-lg shadow-xl p-6 border-2 border-primary">
+                    <h2 id="result-title" class="text-3xl font-bold mb-4"></h2>
+                    <p id="result-message" class="text-xl mb-6"></p>
+                    <div class="flex justify-center space-x-4">
+                        <button id="restart-button" class="bg-primary hover:bg-dark text-white font-bold py-2 px-6 rounded-lg shadow transition-all">
+                            继续冒险
+                        </button>
+                        <button id="back-to-map-button" class="bg-secondary hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg shadow transition-all">
+                            返回地图
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 位置详情界面 -->
+            <div id="location-detail" class="hidden animate-fade-in">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 id="detail-location-name" class="text-2xl font-bold text-primary">茶馆</h2>
+                    <button id="detail-back-button" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-lg shadow transition-all">
+                        <i class="fa fa-arrow-left mr-1"></i> 返回地图
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- 左侧图片 -->
+                    <div>
+                        <img id="detail-location-image" src="https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/1f32904871134fc1b1cfb24865dddeea~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134036&x-signature=mMC%2F%2BWLAMQFxA1zgdUR4XUGfWSc%3D" alt="茶馆" class="w-full h-64 object-cover rounded-lg shadow-lg">
+                    </div>
+                    
+                    <!-- 右侧信息 -->
+                    <div>
+                        <div class="bg-white rounded-lg shadow-lg p-4 border border-gray-200 h-full">
+                            <h3 class="text-xl font-bold text-primary mb-2">茶馆</h3>
+                            <p id="detail-location-description" class="text-gray-600 mb-4">这是一家热闹的茶馆，里面坐满了各行各业的人。你可以在这里听到各种江湖传闻，也可以休息恢复体力。</p>
+                            
+                            <div id="location-interactions" class="space-y-3">
+                                <button id="rest-button" class="w-full bg-success hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-all">
+                                    <i class="fa fa-bed mr-1"></i> 休息恢复
+                                </button>
+                                <button id="talk-button" class="w-full bg-info hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-all">
+                                    <i class="fa fa-comments mr-1"></i> 打听消息
+                                </button>
+                            </div>
+                            
+                            <div id="location-dialogue" class="mt-4 p-3 bg-gray-100 rounded-lg hidden">
+                                <p class="text-gray-700 italic" id="dialogue-text">店小二：客官，您想听什么消息？最近洛阳城里可不太平，听说城门口有山贼出没...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- 游戏底部信息 -->
+        <footer class="mt-8 text-center text-gray-600 text-sm">
+            <p>武侠修炼回合制游戏 &copy; 2025</p>
+        </footer>
+    </div>
+
+    <script>
+        // 游戏数据
+        const gameData = {
+            player: null,
+            currentEnemy: null,
+            selectedCharacter: null,
+            isPlayerTurn: true,
+            isAutoMode: false,
+            battleLog: [],
+            currentMap: 'luoyang',
+            playerPosition: { x: 50, y: 50 }, // 百分比位置
+            visitedLocations: [],
+            defeatedEnemies: [],
+            
+            // 角色数据
+            characters: {
+                swordsman: {
+                    name: "剑侠客",
+                    portrait: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/3ec37ffa5feb459a8ddaaef06322c615~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=qeZ50f8VnOhRrthfOXiDumJ3U04%3D",
+                    maxHp: 750,
+                    maxMp: 100,
+                    attack: 80,
+                    defense: 60,
+                    speed: 70,
+                    crit: 5,
+                    skills: [
+                        { id: "basic_attack", name: "基础剑法", description: "基础的剑招，造成100%攻击力的伤害", mpCost: 0, damageMultiplier: 1.0, type: "physical", effect: null },
+                        { id: "slash", name: "剑气纵横", description: "发出一道剑气，造成120%攻击力的伤害", mpCost: 10, damageMultiplier: 1.2, type: "physical", effect: null },
+                        { id: "thrust", name: "剑刺", description: "快速刺击，有较高几率暴击，造成110%攻击力的伤害", mpCost: 15, damageMultiplier: 1.1, type: "physical", effect: { type: "buff", stat: "crit", value: 10, duration: 2 } },
+                        { id: "sword_dance", name: "剑舞", description: "连续攻击两次，每次造成80%攻击力的伤害", mpCost: 25, damageMultiplier: 0.8, type: "physical", effect: { type: "multiple_hits", hits: 2 } }
+                    ]
+                },
+                swordswoman: {
+                    name: "侠女",
+                    portrait: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/486256a7bc624da29346e1c69f6aef18~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=xtm%2Fi0Uqwv4WFuuq4c2JEaLq7ck%3D",
+                    maxHp: 700,
+                    maxMp: 120,
+                    attack: 65,
+                    defense: 55,
+                    speed: 90,
+                    crit: 8,
+                    skills: [
+                        { id: "basic_attack", name: "基础刀法", description: "基础的刀招，造成100%攻击力的伤害", mpCost: 0, damageMultiplier: 1.0, type: "physical", effect: null },
+                        { id: "quick_strike", name: "快刀", description: "快速攻击，造成110%攻击力的伤害，有较高几率先攻", mpCost: 10, damageMultiplier: 1.1, type: "physical", effect: { type: "buff", stat: "speed", value: 15, duration: 1 } },
+                        { id: "dodge", name: "闪避", description: "提高闪避率，减少受到的伤害", mpCost: 15, damageMultiplier: 0, type: "support", effect: { type: "buff", stat: "defense", value: 20, duration: 2 } },
+                        { id: "double_attack", name: "双连击", description: "攻击两次，每次造成75%攻击力的伤害", mpCost: 20, damageMultiplier: 0.75, type: "physical", effect: { type: "multiple_hits", hits: 2 } }
+                    ]
+                },
+                warrior: {
+                    name: "武士",
+                    portrait: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/1eed425fed9042099795ff4cd5ea51df~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=cxlF7tH4FTD212t9X2vxlGUEvwg%3D",
+                    maxHp: 900,
+                    maxMp: 80,
+                    attack: 60,
+                    defense: 85,
+                    speed: 50,
+                    crit: 3,
+                    skills: [
+                        { id: "basic_attack", name: "基础拳掌", description: "基础的拳掌功夫，造成100%攻击力的伤害", mpCost: 0, damageMultiplier: 1.0, type: "physical", effect: null },
+                        { id: "power_strike", name: "重击", description: "强力一击，造成130%攻击力的伤害", mpCost: 15, damageMultiplier: 1.3, type: "physical", effect: null },
+                        { id: "taunt", name: "嘲讽", description: "吸引敌人注意，提高自身防御", mpCost: 10, damageMultiplier: 0, type: "support", effect: { type: "buff", stat: "defense", value: 30, duration: 2 } },
+                        { id: "self_heal", name: "疗伤", description: "恢复自身15%的最大生命值", mpCost: 25, damageMultiplier: 0, type: "heal", effect: { type: "heal", value: 0.15 } }
+                    ]
+                }
+            },
+            
+            // 敌人数据
+            enemies: {
+                thief: {
+                    name: "山贼",
+                    portrait: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/1eed425fed9042099795ff4cd5ea51df~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=cxlF7tH4FTD212t9X2vxlGUEvwg%3D",
+                    maxHp: 500,
+                    attack: 50,
+                    defense: 40,
+                    speed: 45,
+                    crit: 5,
+                    skills: [
+                        { id: "enemy_basic", name: "挥砍", description: "基础攻击，造成100%攻击力的伤害", mpCost: 0, damageMultiplier: 1.0, type: "physical", effect: null },
+                        { id: "enemy_charge", name: "冲锋", description: "冲锋攻击，造成120%攻击力的伤害", mpCost: 0, damageMultiplier: 1.2, type: "physical", effect: null }
+                    ]
+                },
+                assassin: {
+                    name: "刺客",
+                    portrait: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/486256a7bc624da29346e1c69f6aef18~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=xtm%2Fi0Uqwv4WFuuq4c2JEaLq7ck%3D",
+                    maxHp: 400,
+                    attack: 70,
+                    defense: 30,
+                    speed: 80,
+                    crit: 15,
+                    skills: [
+                        { id: "enemy_basic", name: "刺杀", description: "基础攻击，造成100%攻击力的伤害", mpCost: 0, damageMultiplier: 1.0, type: "physical", effect: null },
+                        { id: "enemy_backstab", name: "背刺", description: "造成150%攻击力的伤害，高暴击率", mpCost: 0, damageMultiplier: 1.5, type: "physical", effect: { type: "buff", stat: "crit", value: 20, duration: 1 } }
+                    ]
+                },
+                warrior: {
+                    name: "武士",
+                    portrait: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/3ec37ffa5feb459a8ddaaef06322c615~tplv-a9rns2rl98-image.image?rcl=20251119160400C32035CD02BAC7656E0A&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766131453&x-signature=qeZ50f8VnOhRrthfOXiDumJ3U04%3D",
+                    maxHp: 600,
+                    attack: 60,
+                    defense: 70,
+                    speed: 50,
+                    crit: 5,
+                    skills: [
+                        { id: "enemy_basic", name: "刀劈", description: "基础攻击，造成100%攻击力的伤害", mpCost: 0, damageMultiplier: 1.0, type: "physical", effect: null },
+                        { id: "enemy_block", name: "格挡", description: "提高防御，减少受到的伤害", mpCost: 0, damageMultiplier: 0, type: "support", effect: { type: "buff", stat: "defense", value: 25, duration: 2 } }
+                    ]
+                }
+            },
+            
+            // 地图数据
+            maps: {
+                luoyang: {
+                    name: "洛阳城",
+                    locations: {
+                        center: {
+                            name: "洛阳城中心",
+                            description: "你站在洛阳城的中心广场，四周是古色古香的建筑。这里人来人往，热闹非凡。",
+                            x: 50,
+                            y: 50
+                        },
+                        teahouse: {
+                            name: "茶馆",
+                            description: "这是一家热闹的茶馆，里面坐满了各行各业的人。你可以在这里听到各种江湖传闻，也可以休息恢复体力。",
+                            image: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/1f32904871134fc1b1cfb24865dddeea~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134036&x-signature=mMC%2F%2BWLAMQFxA1zgdUR4XUGfWSc%3D",
+                            interactions: [
+                                { id: "rest", name: "休息恢复", type: "button", icon: "bed", color: "success" },
+                                { id: "talk", name: "打听消息", type: "button", icon: "comments", color: "info" }
+                            ],
+                            dialogues: {
+                                talk: "店小二：客官，您想听什么消息？最近洛阳城里可不太平，听说城门口有山贼出没，已经伤了好几个人了。官府也不管管..."
+                            },
+                            x: 30,
+                            y: 30
+                        },
+                        inn: {
+                            name: "客栈",
+                            description: "这是一家中等规模的客栈，提供住宿和餐饮服务。疲惫的旅行者可以在这里过夜休息。",
+                            image: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/4768d967548547cfbf9908e4d3b77d6f~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134036&x-signature=avgvmhJwjZhspbKKhjhSqDfobLA%3D",
+                            interactions: [
+                                { id: "sleep", name: "住宿一晚", type: "button", icon: "moon-o", color: "primary" },
+                                { id: "eat", name: "用餐", type: "button", icon: "cutlery", color: "warning" }
+                            ],
+                            dialogues: {
+                                sleep: "掌柜：客官，住店五十文一晚，包三餐。",
+                                eat: "掌柜：客官想吃点什么？我们这里有招牌红烧肉、清蒸鱼、炒青菜..."
+                            },
+                            x: 40,
+                            y: 60
+                        },
+                        weapon_shop: {
+                            name: "兵器铺",
+                            description: "这是一家兵器铺，墙上挂满了各种刀枪剑戟。店主是一位经验丰富的铁匠，正在炉火前锻造兵器。",
+                            image: "https://p3-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/ebfe2138defa432fb09962437f478f6c~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134037&x-signature=4KnnzSg6tJKzKnqOf3m4R2jVJCM%3D",
+                            interactions: [
+                                { id: "buy", name: "购买兵器", type: "button", icon: "shopping-cart", color: "success" },
+                                { id: "repair", name: "修理兵器", type: "button", icon: "wrench", color: "info" }
+                            ],
+                            dialogues: {
+                                buy: "铁匠：客官想买什么兵器？我这里有上好的龙泉剑、宣花斧、点钢枪...",
+                                repair: "铁匠：兵器坏了？拿来我看看，小修五文，大修十文。"
+                            },
+                            x: 70,
+                            y: 45
+                        },
+                        city_gate: {
+                            name: "城门口",
+                            description: "这里是洛阳城的南门，高大的城门上方写着'洛阳'二字。城门口有几个官兵在盘查过往行人。",
+                            image: "https://p9-flow-imagex-sign.byteimg.com/tos-cn-i-a9rns2rl98/rc/pc/super_tool/8e3ecd5a73264a3581cd4be58b3d5763~tplv-a9rns2rl98-image.image?rcl=20251119164704F8F1A64EA92B7A80AD81&rk3s=8e244e95&rrcfp=f06b921b&x-expires=1766134037&x-signature=VxBWHWPzUqSKxOibtdREAnnj%2BUo%3D",
+                            interactions: [
+                                { id: "talk_guard", name: "与守卫对话", type: "button", icon: "user-secret", color: "primary" },
+                                { id: "exit_city", name: "出城", type: "button", icon: "sign-out", color: "warning" }
+                            ],
+                            dialogues: {
+                                talk_guard: "守卫：最近城外不太平，有山贼出没，晚上最好不要出城。",
+                                exit_city: "守卫：出城后小心行事，遇到危险可随时回城求助。"
+                            },
+                            x: 85,
+                            y: 20
+                        }
+                    },
+                    enemies: {
+                        thief: {
+                            name: "山贼",
+                            description: "一个手持钢刀的山贼，看起来凶神恶煞。",
+                            x: 60,
+                            y: 50
+                        }
+                    }
+                }
+            }
+        };
+        
+        // DOM元素
+        const elements = {
+            characterSelection: document.getElementById('character-selection'),
+            luoyangMap: document.getElementById('luoyang-map'),
+            battleScreen: document.getElementById('battle-screen'),
+            battleResult: document.getElementById('battle-result'),
+            locationDetail: document.getElementById('location-detail'),
+            characterOptions: document.querySelectorAll('.character-option'),
+            startGameButton: document.getElementById('start-game'),
+            
+            // 地图相关
+            playerPosition: document.getElementById('player-position'),
+            locationName: document.getElementById('location-name'),
+            locationDescription: document.getElementById('location-description'),
+            mapPlayerHp: document.getElementById('map-player-hp'),
+            mapPlayerMp: document.getElementById('map-player-mp'),
+            mapMenuButton: document.getElementById('map-menu-button'),
+            moveUpButton: document.getElementById('move-up'),
+            moveDownButton: document.getElementById('move-down'),
+            moveLeftButton: document.getElementById('move-left'),
+            moveRightButton: document.getElementById('move-right'),
+            mapLocations: document.querySelectorAll('.map-location'),
+            mapEnemies: document.querySelectorAll('.map-enemy'),
+            
+            // 位置详情相关
+            detailLocationName: document.getElementById('detail-location-name'),
+            detailLocationImage: document.getElementById('detail-location-image'),
+            detailLocationDescription: document.getElementById('detail-location-description'),
+            locationInteractions: document.getElementById('location-interactions'),
+            locationDialogue: document.getElementById('location-dialogue'),
+            dialogueText: document.getElementById('dialogue-text'),
+            detailBackButton: document.getElementById('detail-back-button'),
+            
+            // 玩家信息
+            playerPortrait: document.getElementById('player-portrait'),
+            playerName: document.getElementById('player-name'),
+            playerHp: document.getElementById('player-hp'),
+            playerMp: document.getElementById('player-mp'),
+            playerHpBar: document.getElementById('player-hp-bar'),
+            playerMpBar: document.getElementById('player-mp-bar'),
+            playerHpText: document.getElementById('player-hp-text'),
+            playerMpText: document.getElementById('player-mp-text'),
+            playerAttack: document.getElementById('player-attack'),
+            playerDefense: document.getElementById('player-defense'),
+            playerSpeed: document.getElementById('player-speed'),
+            playerCrit: document.getElementById('player-crit'),
+            
+            // 战斗区域
+            enemyPortrait: document.getElementById('enemy-portrait'),
+            enemyName: document.getElementById('enemy-name'),
+            enemyHpBar: document.getElementById('enemy-hp-bar'),
+            enemyHpText: document.getElementById('enemy-hp-text'),
+            playerBattlePortrait: document.getElementById('player-battle-portrait'),
+            playerBattleName: document.getElementById('player-battle-name'),
+            playerBattleHpBar: document.getElementById('player-battle-hp-bar'),
+            playerBattleHpText: document.getElementById('player-battle-hp-text'),
+            
+            // 战斗日志
+            battleLogMessages: document.getElementById('battle-log-messages'),
+            
+            // 招式选择
+            skillsContainer: document.getElementById('skills-container'),
+            
+            // 战斗控制
+            fleeButton: document.getElementById('flee-button'),
+            endTurnButton: document.getElementById('end-turn-button'),
+            autoButton: document.getElementById('auto-button'),
+            battleBackButton: document.getElementById('battle-back-button'),
+            
+            // 战斗结果
+            resultTitle: document.getElementById('result-title'),
+            resultMessage: document.getElementById('result-message'),
+            restartButton: document.getElementById('restart-button'),
+            backToMapButton: document.getElementById('back-to-map-button')
+        };
+        
+        // 初始化游戏
+        function initGame() {
+            // 角色选择事件
+            elements.characterOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    // 移除其他角色的选中状态
+                    elements.characterOptions.forEach(opt => {
+                        opt.classList.remove('border-primary');
+                        opt.classList.add('border-transparent');
+                    });
+                    
+                    // 添加当前角色的选中状态
+                    option.classList.remove('border-transparent');
+                    option.classList.add('border-primary');
+                    
+                    // 保存选中的角色
+                    gameData.selectedCharacter = option.dataset.character;
+                    
+                    // 启用开始游戏按钮
+                    elements.startGameButton.disabled = false;
+                });
+            });
+            
+            // 开始游戏按钮
+            elements.startGameButton.addEventListener('click', startGame);
+            
+            // 地图移动按钮
+            elements.moveUpButton.addEventListener('click', () => movePlayer(0, -10));
+            elements.moveDownButton.addEventListener('click', () => movePlayer(0, 10));
+            elements.moveLeftButton.addEventListener('click', () => movePlayer(-10, 0));
+            elements.moveRightButton.addEventListener('click', () => movePlayer(10, 0));
+            
+            // 地图位置点击事件
+            elements.mapLocations.forEach(location => {
+                location.addEventListener('click', () => {
+                    const locationId = location.dataset.location;
+                    showLocationDetail(locationId);
+                });
+            });
+            
+            // 地图敌人点击事件
+            elements.mapEnemies.forEach(enemy => {
+                enemy.addEventListener('click', () => {
+                    const enemyId = enemy.dataset.enemy;
+                    startBattleWithEnemy(enemyId);
+                });
+            });
+            
+            // 位置详情返回按钮
+            elements.detailBackButton.addEventListener('click', () => {
+                elements.locationDetail.classList.add('hidden');
+                elements.luoyangMap.classList.remove('hidden');
+            });
+            
+            // 战斗返回地图按钮
+            elements.battleBackButton.addEventListener('click', () => {
+                elements.battleScreen.classList.add('hidden');
+                elements.luoyangMap.classList.remove('hidden');
+            });
+            
+            // 战斗控制按钮
+            elements.fleeButton.addEventListener('click', fleeBattle);
+            elements.endTurnButton.addEventListener('click', endTurn);
+            elements.autoButton.addEventListener('click', toggleAutoMode);
+            
+            // 战斗结果按钮
+            elements.restartButton.addEventListener('click', restartGame);
+            elements.backToMapButton.addEventListener('click', backToMap);
+        }
+        
+        // 开始游戏
+        function startGame() {
+            // 创建玩家角色
+            const characterData = gameData.characters[gameData.selectedCharacter];
+            gameData.player = {
+                name: characterData.name,
+                portrait: characterData.portrait,
+                maxHp: characterData.maxHp,
+                currentHp: characterData.maxHp,
+                maxMp: characterData.maxMp,
+                currentMp: characterData.maxMp,
+                attack: characterData.attack,
+                defense: characterData.defense,
+                speed: characterData.speed,
+                crit: characterData.crit,
+                skills: [...characterData.skills],
+                buffs: []
+            };
+            
+            // 重置地图数据
+            gameData.currentMap = 'luoyang';
+            gameData.playerPosition = { x: 50, y: 50 };
+            gameData.visitedLocations = [];
+            gameData.defeatedEnemies = [];
+            
+            // 清空战斗日志
+            gameData.battleLog = [];
+            
+            // 更新地图UI
+            updateMapUI();
+            
+            // 显示地图界面
+            elements.characterSelection.classList.add('hidden');
+            elements.luoyangMap.classList.remove('hidden');
+        }
+        
+        // 更新地图UI
+        function updateMapUI() {
+            // 更新玩家位置
+            elements.playerPosition.style.top = `${gameData.playerPosition.y}%`;
+            elements.playerPosition.style.left = `${gameData.playerPosition.x}%`;
+            
+            // 更新玩家状态
+            elements.mapPlayerHp.textContent = `${gameData.player.currentHp}/${gameData.player.maxHp}`;
+            elements.mapPlayerMp.textContent = `${gameData.player.currentMp}/${gameData.player.maxMp}`;
+            
+            // 更新当前位置信息
+            updateCurrentLocationInfo();
+            
+            // 检查并隐藏已击败的敌人
+            elements.mapEnemies.forEach(enemy => {
+                const enemyId = enemy.dataset.enemy;
+                if (gameData.defeatedEnemies.includes(enemyId)) {
+                    enemy.classList.add('hidden');
+                } else {
+                    enemy.classList.remove('hidden');
+                }
+            });
+        }
+        
+        // 更新当前位置信息
+        function updateCurrentLocationInfo() {
+            const map = gameData.maps[gameData.currentMap];
+            let closestLocation = null;
+            let minDistance = Infinity;
+            
+            // 查找最近的位置
+            for (const [id, location] of Object.entries(map.locations)) {
+                const distance = calculateDistance(
+                    gameData.playerPosition.x, 
+                    gameData.playerPosition.y, 
+                    location.x, 
+                    location.y
+                );
+                
+                if (distance < minDistance && distance < 15) { // 15%以内视为接近
+                    minDistance = distance;
+                    closestLocation = id;
+                }
+            }
+            
+            // 更新位置信息
+            if (closestLocation) {
+                const location = map.locations[closestLocation];
+                elements.locationName.textContent = `当前位置：${location.name}`;
+                elements.locationDescription.textContent = location.description;
+                
+                // 添加到已访问位置
+                if (!gameData.visitedLocations.includes(closestLocation)) {
+                    gameData.visitedLocations.push(closestLocation);
+                }
+            } else {
+                elements.locationName.textContent = `当前位置：${map.name}`;
+                elements.locationDescription.textContent = "你正在探索这个区域...";
+            }
+        }
+        
+        // 计算两点之间的距离
+        function calculateDistance(x1, y1, x2, y2) {
+            const dx = x1 - x2;
+            const dy = y1 - y2;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+        
+        // 移动玩家
+        function movePlayer(dx, dy) {
+            // 计算新位置
+            let newX = gameData.playerPosition.x + dx;
+            let newY = gameData.playerPosition.y + dy;
+            
+            // 限制在地图范围内
+            newX = Math.max(5, Math.min(95, newX));
+            newY = Math.max(5, Math.min(95, newY));
+            
+            // 更新位置
+            gameData.playerPosition.x = newX;
+            gameData.playerPosition.y = newY;
+            
+            // 更新UI
+            updateMapUI();
+            
+            // 检查是否接近敌人
+            checkEnemyEncounter();
+        }
+        
+        // 检查是否接近敌人
+        function checkEnemyEncounter() {
+            const map = gameData.maps[gameData.currentMap];
+            
+            for (const [id, enemy] of Object.entries(map.enemies)) {
+                // 如果敌人已被击败，则跳过
+                if (gameData.defeatedEnemies.includes(id)) continue;
+                
+                const distance = calculateDistance(
+                    gameData.playerPosition.x, 
+                    gameData.playerPosition.y, 
+                    enemy.x, 
+                    enemy.y
+                );
+                
+                // 如果距离小于10%，有几率触发战斗
+                if (distance < 10 && Math.random() < 0.3) {
+                    startBattleWithEnemy(id);
+                    break;
+                }
+            }
+        }
+        
+        // 显示位置详情
+        function showLocationDetail(locationId) {
+            const map = gameData.maps[gameData.currentMap];
+            const location = map.locations[locationId];
+            
+            if (!location) return;
+            
+            // 更新位置详情UI
+            elements.detailLocationName.textContent = location.name;
+            elements.detailLocationDescription.textContent = location.description;
+            
+            // 设置图片（如果有）
+            if (location.image) {
+                elements.detailLocationImage.src = location.image;
+                elements.detailLocationImage.classList.remove('hidden');
+            } else {
+                elements.detailLocationImage.classList.add('hidden');
+            }
+            
+            // 更新交互按钮
+            elements.locationInteractions.innerHTML = '';
+            
+            if (location.interactions) {
+                location.interactions.forEach(interaction => {
+                    const button = document.createElement('button');
+                    button.id = `${interaction.id}-button`;
+                    button.className = `w-full bg-${interaction.color} hover:bg-${interaction.color}-600 text-white font-bold py-2 px-4 rounded-lg shadow transition-all`;
+                    button.innerHTML = `<i class="fa fa-${interaction.icon} mr-1"></i> ${interaction.name}`;
+                    
+                    // 添加点击事件
+                    button.addEventListener('click', () => handleLocationInteraction(locationId, interaction.id));
+                    
+                    elements.locationInteractions.appendChild(button);
+                });
+            }
+            
+            // 隐藏对话
+            elements.locationDialogue.classList.add('hidden');
+            
+            // 显示位置详情界面
+            elements.luoyangMap.classList.add('hidden');
+            elements.locationDetail.classList.remove('hidden');
+        }
+        
+        // 处理位置交互
+        function handleLocationInteraction(locationId, interactionId) {
+            const map = gameData.maps[gameData.currentMap];
+            const location = map.locations[locationId];
+            
+            if (!location || !location.dialogues || !location.dialogues[interactionId]) return;
+            
+            // 显示对话
+            elements.dialogueText.textContent = location.dialogues[interactionId];
+            elements.locationDialogue.classList.remove('hidden');
+            
+            // 处理特定交互
+            if (interactionId === 'rest') {
+                // 休息恢复
+                const healAmount = Math.round(gameData.player.maxHp * 0.3);
+                gameData.player.currentHp = Math.min(gameData.player.maxHp, gameData.player.currentHp + healAmount);
+                
+                // 更新地图UI
+                updateMapUI();
+                
+                // 添加对话
+                setTimeout(() => {
+                    elements.dialogueText.textContent += `\n\n你休息了一会儿，恢复了${healAmount}点生命值。`;
+                }, 1500);
+            } else if (interactionId === 'sleep') {
+                // 住宿恢复
+                gameData.player.currentHp = gameData.player.maxHp;
+                gameData.player.currentMp = gameData.player.maxMp;
+                
+                // 更新地图UI
+                updateMapUI();
+                
+                // 添加对话
+                setTimeout(() => {
+                    elements.dialogueText.textContent += `\n\n你在客栈好好休息了一晚，生命值和内力都恢复到了最大值。`;
+                }, 1500);
+            }
+        }
+        
+        // 与特定敌人开始战斗
+        function startBattleWithEnemy(enemyId) {
+            // 获取敌人数据
+            const enemyData = gameData.enemies[enemyId];
+            
+            if (!enemyData) return;
+            
+            // 创建敌人对象
+            gameData.currentEnemy = {
+                name: enemyData.name,
+                portrait: enemyData.portrait,
+                maxHp: enemyData.maxHp,
+                currentHp: enemyData.maxHp,
+                attack: enemyData.attack,
+                defense: enemyData.defense,
+                speed: enemyData.speed,
+                crit: enemyData.crit,
+                skills: [...enemyData.skills],
+                buffs: []
+            };
+            
+            // 清空战斗日志
+            gameData.battleLog = [];
+            
+            // 更新战斗UI
+            updateBattleUI();
+            
+            // 显示战斗界面
+            elements.luoyangMap.classList.add('hidden');
+            elements.locationDetail.classList.add('hidden');
+            elements.battleScreen.classList.remove('hidden');
+            
+            // 添加战斗日志
+            addBattleLog(`你遭遇了${gameData.currentEnemy.name}！战斗开始！`);
+            
+            // 决定谁先行动
+            determineFirstTurn();
+        }
+        
+        // 更新战斗UI
+        function updateBattleUI() {
+            // 更新玩家信息
+            elements.playerPortrait.src = gameData.player.portrait;
+            elements.playerName.textContent = gameData.player.name;
+            elements.playerHp.textContent = `${gameData.player.currentHp}/${gameData.player.maxHp}`;
+            elements.playerMp.textContent = `${gameData.player.currentMp}/${gameData.player.maxMp}`;
+            elements.playerHpBar.style.width = `${(gameData.player.currentHp / gameData.player.maxHp) * 100}%`;
+            elements.playerMpBar.style.width = `${(gameData.player.currentMp / gameData.player.maxMp) * 100}%`;
+            elements.playerHpText.textContent = `${gameData.player.currentHp}/${gameData.player.maxHp}`;
+            elements.playerMpText.textContent = `${gameData.player.currentMp}/${gameData.player.maxMp}`;
+            elements.playerAttack.textContent = gameData.player.attack;
+            elements.playerDefense.textContent = gameData.player.defense;
+            elements.playerSpeed.textContent = gameData.player.speed;
+            elements.playerCrit.textContent = `${gameData.player.crit}%`;
+            
+            // 更新战斗区域
+            elements.enemyPortrait.src = gameData.currentEnemy.portrait;
+            elements.enemyName.textContent = gameData.currentEnemy.name;
+            elements.enemyHpBar.style.width = `${(gameData.currentEnemy.currentHp / gameData.currentEnemy.maxHp) * 100}%`;
+            elements.enemyHpText.textContent = `${gameData.currentEnemy.currentHp}/${gameData.currentEnemy.maxHp}`;
+            elements.playerBattlePortrait.src = gameData.player.portrait;
+            elements.playerBattleName.textContent = gameData.player.name;
+            elements.playerBattleHpBar.style.width = `${(gameData.player.currentHp / gameData.player.maxHp) * 100}%`;
+            elements.playerBattleHpText.textContent = `${gameData.player.currentHp}/${gameData.player.maxHp}`;
+            
+            // 更新招式选择
+            updateSkills();
+            
+            // 更新战斗日志
+            updateBattleLog();
+        }
+        
+        // 更新UI
+        function updateUI() {
+            // 更新玩家信息
+            elements.playerPortrait.src = gameData.player.portrait;
+            elements.playerName.textContent = gameData.player.name;
+            elements.playerHp.textContent = `${gameData.player.currentHp}/${gameData.player.maxHp}`;
+            elements.playerMp.textContent = `${gameData.player.currentMp}/${gameData.player.maxMp}`;
+            elements.playerHpBar.style.width = `${(gameData.player.currentHp / gameData.player.maxHp) * 100}%`;
+            elements.playerMpBar.style.width = `${(gameData.player.currentMp / gameData.player.maxMp) * 100}%`;
+            elements.playerHpText.textContent = `${gameData.player.currentHp}/${gameData.player.maxHp}`;
+            elements.playerMpText.textContent = `${gameData.player.currentMp}/${gameData.player.maxMp}`;
+            elements.playerAttack.textContent = gameData.player.attack;
+            elements.playerDefense.textContent = gameData.player.defense;
+            elements.playerSpeed.textContent = gameData.player.speed;
+            elements.playerCrit.textContent = `${gameData.player.crit}%`;
+            
+            // 更新战斗区域
+            elements.enemyPortrait.src = gameData.enemy.portrait;
+            elements.enemyName.textContent = gameData.enemy.name;
+            elements.enemyHpBar.style.width = `${(gameData.enemy.currentHp / gameData.enemy.maxHp) * 100}%`;
+            elements.enemyHpText.textContent = `${gameData.enemy.currentHp}/${gameData.enemy.maxHp}`;
+            elements.playerBattlePortrait.src = gameData.player.portrait;
+            elements.playerBattleName.textContent = gameData.player.name;
+            elements.playerBattleHpBar.style.width = `${(gameData.player.currentHp / gameData.player.maxHp) * 100}%`;
+            elements.playerBattleHpText.textContent = `${gameData.player.currentHp}/${gameData.player.maxHp}`;
+            
+            // 更新招式选择
+            updateSkills();
+            
+            // 更新战斗日志
+            updateBattleLog();
+        }
+        
+        // 更新招式选择
+        function updateSkills() {
+            elements.skillsContainer.innerHTML = '';
+            
+            gameData.player.skills.forEach(skill => {
+                const skillCard = document.createElement('div');
+                skillCard.className = `skill-card bg-white rounded-lg shadow p-3 border-2 ${gameData.player.currentMp >= skill.mpCost ? 'border-primary' : 'border-gray-300 disabled'}`;
+                skillCard.dataset.skillId = skill.id;
+                
+                skillCard.innerHTML = `
+                    <h4 class="text-lg font-bold text-primary">${skill.name}</h4>
+                    <p class="text-sm text-gray-600 mb-2">${skill.description}</p>
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs bg-info bg-opacity-20 text-info px-2 py-1 rounded-full">
+                            <i class="fa fa-bolt mr-1"></i> ${skill.mpCost}
+                        </span>
+                        ${skill.damageMultiplier > 0 ? 
+                            `<span class="text-xs bg-accent bg-opacity-20 text-accent px-2 py-1 rounded-full">
+                                <i class="fa fa-cut mr-1"></i> ${Math.round(skill.damageMultiplier * 100)}%
+                            </span>` : ''}
+                    </div>
+                `;
+                
+                // 添加点击事件
+                if (gameData.player.currentMp >= skill.mpCost) {
+                    skillCard.addEventListener('click', () => useSkill(skill));
+                }
+                
+                elements.skillsContainer.appendChild(skillCard);
+            });
+        }
+        
+        // 更新战斗日志
+        function updateBattleLog() {
+            elements.battleLogMessages.innerHTML = '';
+            
+            gameData.battleLog.forEach(log => {
+                const logEntry = document.createElement('p');
+                logEntry.className = 'animate-fade-in';
+                
+                // 根据日志类型设置样式
+                if (log.type === 'player_attack') {
+                    logEntry.classList.add('text-primary');
+                } else if (log.type === 'enemy_attack') {
+                    logEntry.classList.add('text-danger');
+                } else if (log.type === 'heal') {
+                    logEntry.classList.add('text-success');
+                } else if (log.type === 'buff') {
+                    logEntry.classList.add('text-info');
+                } else if (log.type === 'debuff') {
+                    logEntry.classList.add('text-warning');
+                } else if (log.type === 'system') {
+                    logEntry.classList.add('text-gray-500', 'italic');
+                }
+                
+                logEntry.textContent = log.message;
+                elements.battleLogMessages.appendChild(logEntry);
+            });
+            
+            // 滚动到底部
+            elements.battleLogMessages.scrollTop = elements.battleLogMessages.scrollHeight;
+        }
+        
+        // 添加战斗日志
+        function addBattleLog(message, type = 'system') {
+            gameData.battleLog.push({ message, type });
+            
+            // 限制日志数量
+            if (gameData.battleLog.length > 10) {
+                gameData.battleLog.shift();
+            }
+            
+            updateBattleLog();
+        }
+        
+        // 决定谁先行动
+        function determineFirstTurn() {
+            if (gameData.player.speed > gameData.enemy.speed) {
+                gameData.isPlayerTurn = true;
+                addBattleLog(`${gameData.player.name}先行动！`);
+            } else if (gameData.player.speed < gameData.enemy.speed) {
+                gameData.isPlayerTurn = false;
+                addBattleLog(`${gameData.enemy.name}先行动！`);
+                setTimeout(enemyTurn, 1000);
+            } else {
+                // 速度相同，随机决定
+                gameData.isPlayerTurn = Math.random() > 0.5;
+                addBattleLog(gameData.isPlayerTurn ? 
+                    `${gameData.player.name}先行动！` : 
+                    `${gameData.enemy.name}先行动！`);
+                
+                if (!gameData.isPlayerTurn) {
+                    setTimeout(enemyTurn, 1000);
+                }
+            }
+        }
+        
+        // 使用招式
+        function useSkill(skill) {
+            if (!gameData.isPlayerTurn) return;
+            
+            // 检查内力是否足够
+            if (gameData.player.currentMp < skill.mpCost) {
+                addBattleLog('内力不足！');
+                return;
+            }
+            
+            // 消耗内力
+            gameData.player.currentMp -= skill.mpCost;
+            
+            // 显示招式动画
+            showSkillAnimation('player', skill);
+            
+            // 处理招式效果
+            setTimeout(() => {
+                if (skill.type === 'physical') {
+                    // 物理攻击
+                    const damage = calculateDamage(gameData.player, gameData.currentEnemy, skill);
+                    gameData.currentEnemy.currentHp = Math.max(0, gameData.currentEnemy.currentHp - damage);
+                    
+                    addBattleLog(`${gameData.player.name}使用${skill.name}，对${gameData.currentEnemy.name}造成${damage}点伤害！`, 'player_attack');
+                    
+                    // 检查敌人是否死亡
+                    if (gameData.currentEnemy.currentHp <= 0) {
+                        endBattle(true);
+                        return;
+                    }
+                } else if (skill.type === 'heal') {
+                    // 治疗
+                    const healAmount = Math.round(gameData.player.maxHp * skill.effect.value);
+                    gameData.player.currentHp = Math.min(gameData.player.maxHp, gameData.player.currentHp + healAmount);
+                    
+                    addBattleLog(`${gameData.player.name}使用${skill.name}，恢复了${healAmount}点生命！`, 'heal');
+                } else if (skill.type === 'support') {
+                    // 辅助技能
+                    if (skill.effect && skill.effect.type === 'buff') {
+                        applyBuff(gameData.player, skill.effect.stat, skill.effect.value, skill.effect.duration);
+                        addBattleLog(`${gameData.player.name}使用${skill.name}，${getStatName(skill.effect.stat)}提高了${skill.effect.value}点，持续${skill.effect.duration}回合！`, 'buff');
+                    }
+                }
+                
+                // 更新战斗UI
+                updateBattleUI();
+                
+                // 结束玩家回合
+                gameData.isPlayerTurn = false;
+                
+                // 敌人回合
+                setTimeout(enemyTurn, 1000);
+            }, 500);
+        }
+        
+        // 计算伤害
+        function calculateDamage(attacker, defender, skill) {
+            // 基础伤害
+            let baseDamage = attacker.attack * skill.damageMultiplier;
+            
+            // 考虑防御
+            let defenseMultiplier = 1 - (defender.defense / 200);
+            defenseMultiplier = Math.max(0.1, defenseMultiplier); // 最低10%伤害
+            
+            // 计算最终伤害
+            let damage = Math.round(baseDamage * defenseMultiplier);
+            
+            // 暴击检查
+            const critChance = attacker.crit;
+            if (Math.random() * 100 < critChance) {
+                damage = Math.round(damage * 1.5); // 暴击伤害150%
+                addBattleLog('暴击！', 'system');
+            }
+            
+            return damage;
+        }
+        
+        // 应用 buff
+        function applyBuff(target, stat, value, duration) {
+            // 检查是否已有相同效果的buff
+            const existingBuffIndex = target.buffs.findIndex(buff => buff.stat === stat);
+            
+            if (existingBuffIndex !== -1) {
+                // 更新现有buff
+                target.buffs[existingBuffIndex].duration = Math.max(target.buffs[existingBuffIndex].duration, duration);
+            } else {
+                // 添加新buff
+                target.buffs.push({ stat, value, duration });
+                
+                // 应用buff效果
+                target[stat] += value;
+            }
+        }
+        
+        // 移除 buff
+        function removeBuff(target, index) {
+            const buff = target.buffs[index];
+            target[buff.stat] -= buff.value;
+            target.buffs.splice(index, 1);
+        }
+        
+        // 敌人回合
+        function enemyTurn() {
+            if (gameData.isAutoMode) {
+                // 自动模式下，敌人行动后玩家自动行动
+                setTimeout(() => {
+                    performEnemyAction();
+                }, 500);
+            } else {
+                performEnemyAction();
+            }
+        }
+        
+        // 执行敌人行动
+        function performEnemyAction() {
+            // 选择随机技能
+            const skill = gameData.currentEnemy.skills[Math.floor(Math.random() * gameData.currentEnemy.skills.length)];
+            
+            // 显示招式动画
+            showSkillAnimation('enemy', skill);
+            
+            // 处理招式效果
+            setTimeout(() => {
+                if (skill.type === 'physical') {
+                    // 物理攻击
+                    const damage = calculateDamage(gameData.currentEnemy, gameData.player, skill);
+                    gameData.player.currentHp = Math.max(0, gameData.player.currentHp - damage);
+                    
+                    addBattleLog(`${gameData.currentEnemy.name}使用${skill.name}，对你造成${damage}点伤害！`, 'enemy_attack');
+                    
+                    // 检查玩家是否死亡
+                    if (gameData.player.currentHp <= 0) {
+                        endBattle(false);
+                        return;
+                    }
+                } else if (skill.type === 'support') {
+                    // 辅助技能
+                    if (skill.effect && skill.effect.type === 'buff') {
+                        applyBuff(gameData.currentEnemy, skill.effect.stat, skill.effect.value, skill.effect.duration);
+                        addBattleLog(`${gameData.currentEnemy.name}使用${skill.name}，${getStatName(skill.effect.stat)}提高了${skill.effect.value}点，持续${skill.effect.duration}回合！`, 'debuff');
+                    }
+                }
+                
+                // 更新战斗UI
+                updateBattleUI();
+                
+                // 减少buff持续时间
+                updateBuffs();
+                
+                // 玩家回合
+                gameData.isPlayerTurn = true;
+                
+                // 自动模式
+                if (gameData.isAutoMode) {
+                    setTimeout(autoPlayerTurn, 500);
+                }
+            }, 500);
+        }
+        
+        // 自动玩家回合
+        function autoPlayerTurn() {
+            if (!gameData.isPlayerTurn) return;
+            
+            // 简单AI：选择第一个可用技能
+            let selectedSkill = null;
+            
+            // 优先使用治疗技能（如果生命值低）
+            if (gameData.player.currentHp < gameData.player.maxHp * 0.3) {
+                selectedSkill = gameData.player.skills.find(skill => skill.type === 'heal' && gameData.player.currentMp >= skill.mpCost);
+            }
+            
+            // 如果没有治疗技能或内力不足，选择攻击技能
+            if (!selectedSkill) {
+                selectedSkill = gameData.player.skills.find(skill => (skill.type === 'physical' || skill.type === 'support') && gameData.player.currentMp >= skill.mpCost);
+            }
+            
+            // 如果没有可用技能，结束回合
+            if (selectedSkill) {
+                useSkill(selectedSkill);
+            } else {
+                endTurn();
+            }
+        }
+        
+        // 更新buff持续时间
+        function updateBuffs() {
+            // 更新玩家buff
+            for (let i = gameData.player.buffs.length - 1; i >= 0; i--) {
+                gameData.player.buffs[i].duration--;
+                
+                if (gameData.player.buffs[i].duration <= 0) {
+                    const buff = gameData.player.buffs[i];
+                    addBattleLog(`${gameData.player.name}的${getStatName(buff.stat)}效果消失了！`, 'system');
+                    removeBuff(gameData.player, i);
+                }
+            }
+            
+            // 更新敌人buff
+            for (let i = gameData.enemy.buffs.length - 1; i >= 0; i--) {
+                gameData.enemy.buffs[i].duration--;
+                
+                if (gameData.enemy.buffs[i].duration <= 0) {
+                    const buff = gameData.enemy.buffs[i];
+                    addBattleLog(`${gameData.enemy.name}的${getStatName(buff.stat)}效果消失了！`, 'system');
+                    removeBuff(gameData.enemy, i);
+                }
+            }
+        }
+        
+        // 显示招式动画
+        function showSkillAnimation(character, skill) {
+            const arena = document.querySelector('.battle-arena');
+            const effect = document.createElement('div');
+            effect.className = 'skill-animation battle-effect';
+            
+            // 设置动画位置
+            if (character === 'player') {
+                effect.style.left = '100px';
+                effect.style.bottom = '100px';
+            } else {
+                effect.style.right = '100px';
+                effect.style.top = '100px';
+            }
+            
+            // 添加到战斗区域
+            arena.appendChild(effect);
+            
+            // 添加招式文本
+            const skillText = document.createElement('div');
+            skillText.className = 'floating-combat-text battle-effect';
+            skillText.textContent = skill.name;
+            
+            if (character === 'player') {
+                skillText.style.left = '100px';
+                skillText.style.bottom = '150px';
+                skillText.style.color = '#2196F3';
+            } else {
+                skillText.style.right = '100px';
+                skillText.style.top = '150px';
+                skillText.style.color = '#F44336';
+            }
+            
+            arena.appendChild(skillText);
+            
+            // 移除动画元素
+            setTimeout(() => {
+                effect.remove();
+                skillText.remove();
+            }, 1000);
+        }
+        
+        // 逃跑
+        function fleeBattle() {
+            // 逃跑成功率基于速度差异
+            const fleeChance = (gameData.player.speed - gameData.currentEnemy.speed) / 100 + 0.5;
+            const success = Math.random() < fleeChance;
+            
+            if (success) {
+                addBattleLog('成功逃跑！', 'system');
+                
+                // 返回地图
+                setTimeout(() => {
+                    elements.battleScreen.classList.add('hidden');
+                    elements.luoyangMap.classList.remove('hidden');
+                    
+                    // 更新地图UI
+                    updateMapUI();
+                }, 1000);
+            } else {
+                addBattleLog('逃跑失败！', 'system');
+                
+                // 敌人反击
+                setTimeout(() => {
+                    const skill = gameData.currentEnemy.skills[0]; // 使用基础攻击
+                    const damage = calculateDamage(gameData.currentEnemy, gameData.player, skill);
+                    gameData.player.currentHp = Math.max(0, gameData.player.currentHp - damage);
+                    
+                    addBattleLog(`${gameData.currentEnemy.name}趁机攻击，对你造成${damage}点伤害！`, 'enemy_attack');
+                    
+                    // 检查玩家是否死亡
+                    if (gameData.player.currentHp <= 0) {
+                        endBattle(false);
+                        return;
+                    }
+                    
+                    // 更新战斗UI
+                    updateBattleUI();
+                    
+                    // 玩家回合
+                    gameData.isPlayerTurn = true;
+                }, 500);
+            }
+        }
+        
+        // 结束回合
+        function endTurn() {
+            if (!gameData.isPlayerTurn) return;
+            
+            addBattleLog(`${gameData.player.name}结束了回合！`, 'system');
+            
+            // 减少buff持续时间
+            updateBuffs();
+            
+            // 结束玩家回合
+            gameData.isPlayerTurn = false;
+            
+            // 敌人回合
+            setTimeout(enemyTurn, 500);
+        }
+        
+        // 切换自动模式
+        function toggleAutoMode() {
+            gameData.isAutoMode = !gameData.isAutoMode;
+            
+            if (gameData.isAutoMode) {
+                elements.autoButton.innerHTML = '<i class="fa fa-stop mr-1"></i> 停止自动';
+                elements.autoButton.classList.remove('bg-warning', 'hover:bg-amber-600');
+                elements.autoButton.classList.add('bg-danger', 'hover:bg-red-600');
+                
+                // 如果是玩家回合，立即开始自动
+                if (gameData.isPlayerTurn) {
+                    autoPlayerTurn();
+                }
+            } else {
+                elements.autoButton.innerHTML = '<i class="fa fa-magic mr-1"></i> 自动战斗';
+                elements.autoButton.classList.remove('bg-danger', 'hover:bg-red-600');
+                elements.autoButton.classList.add('bg-warning', 'hover:bg-amber-600');
+            }
+        }
+        
+        // 结束战斗
+        function endBattle(isVictory, isFlee = false) {
+            // 显示战斗结果界面
+            elements.battleScreen.classList.add('hidden');
+            elements.battleResult.classList.remove('hidden');
+            
+            if (isVictory) {
+                elements.resultTitle.textContent = '战斗胜利！';
+                elements.resultTitle.classList.remove('text-danger');
+                elements.resultTitle.classList.add('text-success');
+                elements.resultMessage.textContent = `你成功击败了${gameData.currentEnemy.name}！`;
+                
+                // 将敌人添加到已击败列表
+                const enemyId = Object.keys(gameData.enemies).find(id => gameData.enemies[id].name === gameData.currentEnemy.name);
+                if (enemyId && !gameData.defeatedEnemies.includes(enemyId)) {
+                    gameData.defeatedEnemies.push(enemyId);
+                }
+                
+                // 简单的奖励机制
+                const expGained = 50;
+                const goldGained = 20;
+                elements.resultMessage.textContent += `\n获得了${expGained}点经验和${goldGained}两银子！`;
+            } else if (isFlee) {
+                elements.resultTitle.textContent = '战斗逃跑';
+                elements.resultTitle.classList.remove('text-success');
+                elements.resultTitle.classList.add('text-warning');
+                elements.resultMessage.textContent = '你成功逃离了战斗，但没有获得任何奖励。';
+            } else {
+                elements.resultTitle.textContent = '战斗失败！';
+                elements.resultTitle.classList.remove('text-success');
+                elements.resultTitle.classList.add('text-danger');
+                elements.resultMessage.textContent = `你被${gameData.currentEnemy.name}击败了！`;
+                
+                // 失败惩罚：减少一些生命值
+                gameData.player.currentHp = Math.max(1, Math.round(gameData.player.currentHp * 0.3));
+            }
+        }
+        
+        // 返回地图
+        function backToMap() {
+            // 重置自动模式
+            gameData.isAutoMode = false;
+            
+            // 显示地图界面
+            elements.battleResult.classList.add('hidden');
+            elements.luoyangMap.classList.remove('hidden');
+            
+            // 更新地图UI
+            updateMapUI();
+        }
+        
+        // 重新开始游戏
+        function restartGame() {
+            // 重置自动模式
+            gameData.isAutoMode = false;
+            
+            // 开始新游戏
+            startGame();
+        }
+        
+        // 返回角色选择
+        function backToCharacterSelection() {
+            // 重置游戏数据
+            gameData.player = null;
+            gameData.enemy = null;
+            gameData.selectedCharacter = null;
+            gameData.isPlayerTurn = true;
+            gameData.isAutoMode = false;
+            
+            // 重置UI
+            elements.characterOptions.forEach(opt => {
+                opt.classList.remove('border-primary');
+                opt.classList.add('border-transparent');
+            });
+            
+            elements.startGameButton.disabled = true;
+            
+            // 显示角色选择界面
+            elements.battleResult.classList.add('hidden');
+            elements.characterSelection.classList.remove('hidden');
+        }
+        
+        // 获取属性名称
+        function getStatName(stat) {
+            const names = {
+                attack: '攻击力',
+                defense: '防御力',
+                speed: '速度',
+                crit: '暴击率'
+            };
+            
+            return names[stat] || stat;
+        }
+        
+        // 启动游戏
+        window.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
